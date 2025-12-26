@@ -11,44 +11,39 @@ let currentUser = null;
 let userProfile = null;
 let currentPeriod = 'month';
 let charts = {};
-let isInitialized = false;
 
-// Inicializar Supabase IMEDIATAMENTE
+// Inicializar Supabase
 try {
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✓ Supabase inicializado');
 } catch (error) {
-    console.error('Erro ao inicializar Supabase:', error);
+    console.error('✗ Erro ao inicializar Supabase:', error);
 }
 
 // ========================================
 // INICIALIZAÇÃO
 // ========================================
 
-// Executar assim que o documento estiver pronto
+// Esperar o DOM estar completamente pronto
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startApp);
+    document.addEventListener('DOMContentLoaded', initializeApp);
 } else {
-    startApp();
+    initializeApp();
 }
 
-function startApp() {
-    if (isInitialized) return;
-    isInitialized = true;
-    
-    console.log('Iniciando aplicação...');
-    
-    // Carregar tema
-    loadTheme();
-    
-    // Configurar listeners
-    setupEventListeners();
-    
-    // Verificar autenticação e carregar dados
-    verifyAndLoadData();
-}
-
-async function verifyAndLoadData() {
+async function initializeApp() {
     try {
+        console.log('Iniciando aplicação...');
+        
+        // 1. Carregar tema
+        loadTheme();
+        console.log('✓ Tema carregado');
+        
+        // 2. Configurar event listeners
+        setupEventListeners();
+        console.log('✓ Event listeners configurados');
+        
+        // 3. Verificar autenticação
         if (!supabase) {
             throw new Error('Supabase não inicializado');
         }
@@ -62,29 +57,42 @@ async function verifyAndLoadData() {
         }
         
         currentUser = session.user;
+        console.log('✓ Usuário autenticado:', currentUser.email);
+        
+        // 4. Carregar perfil do usuário
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || {
-            name: currentUser.user_metadata?.name || currentUser.email,
+            name: currentUser.user_metadata?.name || currentUser.email || 'Usuário',
             accountType: currentUser.user_metadata?.account_type || 'pessoal'
         };
+        console.log('✓ Perfil carregado:', userProfile.name);
         
-        // Carregar dados do localStorage
-        loadTransactions();
+        // 5. Atualizar informações do usuário na tela
         updateUserInfo();
-        setDefaultDate();
-        updateDashboard();
+        console.log('✓ Informações do usuário atualizadas');
         
-        // Carregar gráficos em background
+        // 6. Carregar transações
+        loadTransactions();
+        console.log('✓ Transações carregadas');
+        
+        // 7. Definir data padrão
+        setDefaultDate();
+        
+        // 8. Atualizar dashboard
+        updateDashboard();
+        console.log('✓ Dashboard atualizado');
+        
+        // 9. Carregar gráficos (sem bloquear)
         setTimeout(() => {
             try {
                 updateCharts();
+                console.log('✓ Gráficos carregados');
             } catch (error) {
                 console.error('Erro ao carregar gráficos:', error);
             }
         }, 100);
         
     } catch (error) {
-        console.error('Erro ao verificar autenticação:', error);
-        // Redirecionar para login após 1 segundo
+        console.error('✗ Erro ao inicializar:', error);
         setTimeout(() => {
             window.location.href = 'login.html';
         }, 1000);
@@ -97,21 +105,31 @@ async function verifyAndLoadData() {
 
 function updateUserInfo() {
     try {
-        if (!userProfile || !userProfile.name) return;
+        if (!userProfile || !userProfile.name) {
+            console.warn('Perfil não disponível');
+            return;
+        }
         
         const initial = userProfile.name.charAt(0).toUpperCase();
         
-        const elements = {
-            'user-initial': initial,
-            'sidebar-user-name': userProfile.name,
-            'header-user-name': userProfile.name.split(' ')[0],
-            'sidebar-account-type': userProfile.accountType === 'pessoal' ? '👤 Pessoal' : '🏢 Empresarial'
-        };
+        // Atualizar sidebar
+        const userInitialEl = document.getElementById('user-initial');
+        const sidebarUserNameEl = document.getElementById('sidebar-user-name');
+        const sidebarAccountTypeEl = document.getElementById('sidebar-account-type');
         
-        Object.entries(elements).forEach(([id, text]) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = text;
-        });
+        if (userInitialEl) userInitialEl.textContent = initial;
+        if (sidebarUserNameEl) sidebarUserNameEl.textContent = userProfile.name;
+        if (sidebarAccountTypeEl) {
+            sidebarAccountTypeEl.textContent = userProfile.accountType === 'pessoal' ? '👤 Pessoal' : '🏢 Empresarial';
+        }
+        
+        // Atualizar header
+        const headerUserNameEl = document.getElementById('header-user-name');
+        if (headerUserNameEl) {
+            headerUserNameEl.textContent = userProfile.name.split(' ')[0];
+        }
+        
+        console.log('✓ Informações do usuário atualizadas:', userProfile.name);
     } catch (error) {
         console.error('Erro ao atualizar info do usuário:', error);
     }
@@ -123,10 +141,15 @@ function updateUserInfo() {
 
 function loadTransactions() {
     try {
-        if (!currentUser) return;
+        if (!currentUser) {
+            console.warn('Usuário não definido');
+            return;
+        }
         
         const storageKey = `finances_pro_${currentUser.id}`;
-        transactions = JSON.parse(localStorage.getItem(storageKey)) || [];
+        const stored = localStorage.getItem(storageKey);
+        transactions = stored ? JSON.parse(stored) : [];
+        console.log(`✓ ${transactions.length} transações carregadas`);
     } catch (error) {
         console.error('Erro ao carregar transações:', error);
         transactions = [];
@@ -138,6 +161,7 @@ function saveTransactions() {
         if (!currentUser) return;
         const storageKey = `finances_pro_${currentUser.id}`;
         localStorage.setItem(storageKey, JSON.stringify(transactions));
+        console.log('✓ Transações salvas');
     } catch (error) {
         console.error('Erro ao salvar transações:', error);
     }
@@ -147,6 +171,7 @@ function addTransaction(transaction) {
     transactions.push(transaction);
     saveTransactions();
     updateDashboard();
+    updateCharts();
 }
 
 function updateTransaction(id, updatedData) {
@@ -155,6 +180,7 @@ function updateTransaction(id, updatedData) {
         transactions[index] = { ...transactions[index], ...updatedData };
         saveTransactions();
         updateDashboard();
+        updateCharts();
     }
 }
 
@@ -163,6 +189,7 @@ function deleteTransaction(id) {
         transactions = transactions.filter(t => t.id !== id);
         saveTransactions();
         updateDashboard();
+        updateCharts();
     }
 }
 
@@ -326,20 +353,20 @@ function updateTransactionsTable() {
                             }"></i>
                         </div>
                         <div>
-                            <p class="font-semibold">${t.desc}</p>
+                            <p class="font-semibold text-sm">${t.desc}</p>
                             ${t.notes ? `<p class="text-xs" style="color: var(--text-secondary);">${t.notes}</p>` : ''}
                         </div>
                     </div>
                 </td>
                 <td class="py-4">
-                    <span class="badge" style="background-color: var(--bg-primary); color: var(--text-secondary);">
+                    <span class="badge text-xs" style="background-color: var(--bg-primary); color: var(--text-secondary);">
                         ${t.category}
                     </span>
                 </td>
-                <td class="py-4" style="color: var(--text-secondary);">
+                <td class="py-4 text-xs" style="color: var(--text-secondary);">
                     ${formatDate(t.date)}
                 </td>
-                <td class="py-4 text-right font-bold ${
+                <td class="py-4 text-right font-bold text-sm ${
                     t.type === 'income' ? 'text-emerald-600' :
                     t.type === 'expense' ? 'text-red-600' :
                     'text-amber-600'
@@ -347,10 +374,10 @@ function updateTransactionsTable() {
                     ${t.type === 'expense' ? '-' : '+'} ${formatCurrency(t.amount)}
                 </td>
                 <td class="py-4 text-center">
-                    <button onclick="editTransaction(${t.id})" class="text-blue-500 hover:text-blue-700 mx-1">
+                    <button onclick="editTransaction(${t.id})" class="text-blue-500 hover:text-blue-700 mx-1 text-sm">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="deleteTransaction(${t.id})" class="text-red-500 hover:text-red-700 mx-1">
+                    <button onclick="deleteTransaction(${t.id})" class="text-red-500 hover:text-red-700 mx-1 text-sm">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -369,7 +396,7 @@ function updateAlerts() {
         const totals = calculateTotals();
         const alerts = [];
         
-        if (totals.expense > totals.income) {
+        if (totals.expense > totals.income && totals.expense > 0) {
             alerts.push({
                 type: 'danger',
                 icon: 'exclamation-triangle',
@@ -400,7 +427,7 @@ function updateAlerts() {
             container.innerHTML = `
                 <div class="text-center py-4" style="color: var(--text-secondary);">
                     <i class="fas fa-info-circle text-2xl mb-2"></i>
-                    <p class="text-sm">Nenhum alerta no momento</p>
+                    <p class="text-xs md:text-sm">Nenhum alerta no momento</p>
                 </div>
             `;
             return;
@@ -413,12 +440,12 @@ function updateAlerts() {
                 'bg-emerald-50 border-emerald-500 dark:bg-emerald-900 dark:bg-opacity-20'
             }">
                 <div class="flex items-start space-x-3">
-                    <i class="fas fa-${alert.icon} text-lg ${
+                    <i class="fas fa-${alert.icon} text-lg flex-shrink-0 ${
                         alert.type === 'danger' ? 'text-red-600' :
                         alert.type === 'warning' ? 'text-amber-600' :
                         'text-emerald-600'
                     }"></i>
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
                         <p class="font-semibold text-sm">${alert.title}</p>
                         <p class="text-xs mt-1" style="color: var(--text-secondary);">${alert.message}</p>
                     </div>
@@ -735,6 +762,7 @@ function setupEventListeners() {
             periodFilter.addEventListener('change', function() {
                 currentPeriod = this.value;
                 updateDashboard();
+                updateCharts();
             });
         }
         
@@ -775,6 +803,7 @@ function handleTransactionSubmit(e) {
         closeModal('transaction-modal');
     } catch (error) {
         console.error('Erro ao enviar formulário:', error);
+        alert('Erro ao salvar transação. Tente novamente.');
     }
 }
 
@@ -787,6 +816,7 @@ function loadTheme() {
         const theme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', theme);
         updateThemeIcon(theme);
+        console.log('✓ Tema carregado:', theme);
     } catch (error) {
         console.error('Erro ao carregar tema:', error);
     }
@@ -800,7 +830,16 @@ function toggleTheme() {
         localStorage.setItem('theme', newTheme);
         updateThemeIcon(newTheme);
         
-        setTimeout(() => updateCharts(), 100);
+        console.log('✓ Tema alterado para:', newTheme);
+        
+        // Atualizar gráficos com novo tema
+        setTimeout(() => {
+            try {
+                updateCharts();
+            } catch (error) {
+                console.error('Erro ao atualizar gráficos:', error);
+            }
+        }, 100);
     } catch (error) {
         console.error('Erro ao alternar tema:', error);
     }
