@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | FinanceMaster Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        .input-field {
+            transition: all 0.3s ease;
+        }
+        .input-field:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+        .password-input-wrapper {
+            position: relative;
+        }
+        .password-toggle-btn {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
+        .password-toggle-btn:hover {
+            color: #374151;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="glass-card rounded-3xl p-8 w-full max-w-md">
+        <!-- Logo e Título -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl mb-4 shadow-lg">
+                <i class="fas fa-chart-line text-white text-2xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Finance<span class="text-emerald-600">Master</span> Pro</h1>
+            <p class="text-gray-600">Controle total das suas finanças</p>
+        </div>
+
+        <!-- Alertas -->
+        <div id="alert" class="hidden mb-4 p-4 rounded-xl text-sm"></div>
+
+        <!-- Formulário de Login -->
+        <form id="login-form" class="space-y-5">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-envelope mr-2 text-emerald-600"></i>E-mail
+                </label>
+                <input type="email" id="email" required 
+                    placeholder="seu@email.com"
+                    class="input-field w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:bg-white outline-none">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    <i class="fas fa-lock mr-2 text-emerald-600"></i>Senha
+                </label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="password" required 
+                        placeholder="••••••••"
+                        class="input-field w-full px-4 py-3 pr-12 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:bg-white outline-none">
+                    <button type="button" class="password-toggle-btn" onclick="togglePassword('password', 'eye-icon')">
+                        <i class="fas fa-eye" id="eye-icon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" id="login-btn"
+                class="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold py-4 rounded-xl hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                <i class="fas fa-sign-in-alt mr-2"></i>Entrar
+            </button>
+        </form>
+
+        <!-- Divisor -->
+        <div class="relative my-6">
+            <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+                <span class="px-4 bg-white text-gray-500">ou</span>
+            </div>
+        </div>
+
+        <!-- Link para Cadastro -->
+        <div class="text-center">
+            <p class="text-gray-600 text-sm mb-4">
+                Ainda não tem uma conta?
+            </p>
+            <a href="cadastro.html" 
+                class="inline-block w-full py-3 border-2 border-emerald-500 text-emerald-600 font-semibold rounded-xl hover:bg-emerald-50 transition-all">
+                <i class="fas fa-user-plus mr-2"></i>Criar Conta Grátis
+            </a>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 text-center text-xs text-gray-500">
+            <p>© 2025 FinanceMaster Pro. Seus dados estão seguros.</p>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://keklkdsiktkpbihhksro.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtla2xrZHNpa3RrcGJpaGhrc3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMyNjIxNzYsImV4cCI6MjA3ODgzODE3Nn0.Aadwh_qBeaZGUWYjh_DqxurPdPo2uwljHBLv-f51vAU';
+        
+        // Inicializar Supabase corretamente
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const form = document.getElementById('login-form');
+        const alertBox = document.getElementById('alert');
+        const loginBtn = document.getElementById('login-btn');
+
+        // Verificar se já está logado
+        checkAuth();
+
+        async function checkAuth() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    window.location.href = 'dashboard.html';
+                }
+            } catch (error) {
+                console.error('Erro ao verificar autenticação:', error);
+            }
+        }
+
+        function togglePassword(fieldId, iconId) {
+            const passwordInput = document.getElementById(fieldId);
+            const eyeIcon = document.getElementById(iconId);
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
+        }
+
+        function showAlert(message, type = 'error') {
+            alertBox.className = `mb-4 p-4 rounded-xl text-sm ${type === 'error' ? 'bg-red-100 border-2 border-red-300 text-red-700' : 'bg-emerald-100 border-2 border-emerald-300 text-emerald-700'}`;
+            alertBox.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-circle' : 'check-circle'} mr-2"></i>${message}`;
+            alertBox.classList.remove('hidden');
+            setTimeout(() => alertBox.classList.add('hidden'), 5000);
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            // Validações
+            if (!email) {
+                showAlert('Por favor, preencha seu e-mail!');
+                return;
+            }
+
+            if (!password) {
+                showAlert('Por favor, preencha sua senha!');
+                return;
+            }
+
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+            loginBtn.disabled = true;
+
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) throw error;
+
+                showAlert('Login realizado com sucesso!', 'success');
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1000);
+
+            } catch (error) {
+                console.error('Erro ao fazer login:', error);
+                showAlert(error.message || 'Erro ao fazer login. Verifique suas credenciais.');
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Entrar';
+                loginBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
