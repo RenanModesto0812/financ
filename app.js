@@ -11,129 +11,83 @@ let currentUser = null;
 let userProfile = null;
 let currentPeriod = 'month';
 let charts = {};
+let isInitialized = false;
+
+// Inicializar Supabase IMEDIATAMENTE
+try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (error) {
+    console.error('Erro ao inicializar Supabase:', error);
+}
 
 // ========================================
 // INICIALIZAÇÃO
 // ========================================
 
-// Inicializar Supabase imediatamente
-try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('Supabase inicializado com sucesso');
-} catch (error) {
-    console.error('Erro ao inicializar Supabase:', error);
-}
-
-// Configurar timeout de 5 segundos para mostrar botão de emergência
-let loadingTimeout = setTimeout(() => {
-    console.warn('Carregamento demorando muito, mostrando botão de emergência');
-    const skipBtn = document.getElementById('skip-loading');
-    if (skipBtn) {
-        skipBtn.style.display = 'block';
-    }
-}, 5000);
-
-// Iniciar quando o DOM estiver pronto
+// Executar assim que o documento estiver pronto
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApp);
+    document.addEventListener('DOMContentLoaded', startApp);
 } else {
-    // Se o DOM já está pronto, inicializar imediatamente
-    initializeApp();
+    startApp();
 }
 
-async function initializeApp() {
+function startApp() {
+    if (isInitialized) return;
+    isInitialized = true;
+    
+    console.log('Iniciando aplicação...');
+    
+    // Carregar tema
+    loadTheme();
+    
+    // Configurar listeners
+    setupEventListeners();
+    
+    // Verificar autenticação e carregar dados
+    verifyAndLoadData();
+}
+
+async function verifyAndLoadData() {
     try {
-        console.log('Iniciando aplicação...');
-        
-        // Carregar tema primeiro
-        loadTheme();
-        
-        // Configurar event listeners
-        setupEventListeners();
-        
-        // Verificar autenticação
         if (!supabase) {
-            throw new Error('Supabase não foi inicializado');
+            throw new Error('Supabase não inicializado');
         }
         
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-            console.log('Nenhuma sessão encontrada, redirecionando para login');
+            console.log('Sem sessão, redirecionando para login');
             window.location.href = 'login.html';
             return;
         }
-
-        console.log('Sessão encontrada, carregando dados do usuário');
+        
         currentUser = session.user;
         userProfile = JSON.parse(localStorage.getItem('userProfile')) || {
             name: currentUser.user_metadata?.name || currentUser.email,
             accountType: currentUser.user_metadata?.account_type || 'pessoal'
         };
-
-        // Carregar dados
+        
+        // Carregar dados do localStorage
         loadTransactions();
         updateUserInfo();
         setDefaultDate();
+        updateDashboard();
         
-        // Mostrar dashboard
-        showDashboard();
-        
-        // Carregar gráficos após um pequeno delay
+        // Carregar gráficos em background
         setTimeout(() => {
             try {
                 updateCharts();
             } catch (error) {
-                console.error('Erro ao atualizar gráficos:', error);
+                console.error('Erro ao carregar gráficos:', error);
             }
-        }, 200);
+        }, 100);
         
     } catch (error) {
-        console.error('Erro ao inicializar aplicação:', error);
-        // Mostrar botão de emergência
-        const skipBtn = document.getElementById('skip-loading');
-        if (skipBtn) {
-            skipBtn.style.display = 'block';
-        }
-    }
-}
-
-function showDashboard() {
-    try {
-        clearTimeout(loadingTimeout);
-        
-        const loadingScreen = document.getElementById('loading-screen');
-        const appContainer = document.getElementById('app');
-        
-        if (loadingScreen) {
-            loadingScreen.style.display = 'none';
-            loadingScreen.style.visibility = 'hidden';
-        }
-        
-        if (appContainer) {
-            appContainer.style.display = 'flex';
-            appContainer.style.visibility = 'visible';
-        }
-        
-        console.log('Dashboard exibido com sucesso');
-    } catch (error) {
-        console.error('Erro ao mostrar dashboard:', error);
-    }
-}
-
-function forceShowDashboard() {
-    console.log('Forçando exibição do dashboard');
-    showDashboard();
-    
-    // Tentar carregar dados mesmo que haja erro
-    try {
-        if (currentUser) {
-            loadTransactions();
-            updateUserInfo();
-            updateDashboard();
-        }
-    } catch (error) {
-        console.error('Erro ao forçar carregamento:', error);
+        console.error('Erro ao verificar autenticação:', error);
+        // Redirecionar para login após 1 segundo
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 1000);
     }
 }
 
@@ -143,25 +97,23 @@ function forceShowDashboard() {
 
 function updateUserInfo() {
     try {
-        if (!userProfile || !userProfile.name) {
-            console.warn('Perfil do usuário não disponível');
-            return;
-        }
+        if (!userProfile || !userProfile.name) return;
         
         const initial = userProfile.name.charAt(0).toUpperCase();
         
-        const userInitial = document.getElementById('user-initial');
-        const sidebarUserName = document.getElementById('sidebar-user-name');
-        const headerUserName = document.getElementById('header-user-name');
-        const sidebarAccountType = document.getElementById('sidebar-account-type');
+        const elements = {
+            'user-initial': initial,
+            'sidebar-user-name': userProfile.name,
+            'header-user-name': userProfile.name.split(' ')[0],
+            'sidebar-account-type': userProfile.accountType === 'pessoal' ? '👤 Pessoal' : '🏢 Empresarial'
+        };
         
-        if (userInitial) userInitial.textContent = initial;
-        if (sidebarUserName) sidebarUserName.textContent = userProfile.name;
-        if (headerUserName) headerUserName.textContent = userProfile.name.split(' ')[0];
-        if (sidebarAccountType) sidebarAccountType.textContent = 
-            userProfile.accountType === 'pessoal' ? '👤 Pessoal' : '🏢 Empresarial';
+        Object.entries(elements).forEach(([id, text]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        });
     } catch (error) {
-        console.error('Erro ao atualizar informações do usuário:', error);
+        console.error('Erro ao atualizar info do usuário:', error);
     }
 }
 
@@ -171,15 +123,10 @@ function updateUserInfo() {
 
 function loadTransactions() {
     try {
-        if (!currentUser) {
-            console.warn('Usuário não definido');
-            return;
-        }
+        if (!currentUser) return;
         
         const storageKey = `finances_pro_${currentUser.id}`;
         transactions = JSON.parse(localStorage.getItem(storageKey)) || [];
-        console.log(`${transactions.length} transações carregadas`);
-        updateDashboard();
     } catch (error) {
         console.error('Erro ao carregar transações:', error);
         transactions = [];
@@ -253,15 +200,15 @@ function calculateTotals() {
     
     const income = filtered
         .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
     
     const expense = filtered
         .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
     
     const pending = filtered
         .filter(t => t.type === 'pending')
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
     
     return { income, expense, pending, balance: income - expense };
 }
@@ -272,7 +219,7 @@ function getCategoryData() {
     
     const categoryTotals = {};
     expenses.forEach(t => {
-        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount);
+        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount || 0);
     });
     
     return categoryTotals;
@@ -295,11 +242,11 @@ function getMonthlyEvolution() {
         
         const income = monthTransactions
             .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+            .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
         
         const expense = monthTransactions
             .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+            .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
         
         months.push(date.toLocaleDateString('pt-BR', { month: 'short' }));
         incomeData.push(income);
@@ -327,17 +274,19 @@ function updateStats() {
     try {
         const totals = calculateTotals();
         
-        const totalIncome = document.getElementById('total-income');
-        const totalExpense = document.getElementById('total-expense');
-        const totalPending = document.getElementById('total-pending');
-        const netBalance = document.getElementById('net-balance');
+        const updates = {
+            'total-income': formatCurrency(totals.income),
+            'total-expense': formatCurrency(totals.expense),
+            'total-pending': formatCurrency(totals.pending),
+            'net-balance': formatCurrency(totals.balance)
+        };
         
-        if (totalIncome) totalIncome.textContent = formatCurrency(totals.income);
-        if (totalExpense) totalExpense.textContent = formatCurrency(totals.expense);
-        if (totalPending) totalPending.textContent = formatCurrency(totals.pending);
-        if (netBalance) netBalance.textContent = formatCurrency(totals.balance);
+        Object.entries(updates).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        });
     } catch (error) {
-        console.error('Erro ao atualizar estatísticas:', error);
+        console.error('Erro ao atualizar stats:', error);
     }
 }
 
@@ -408,7 +357,7 @@ function updateTransactionsTable() {
             </tr>
         `).join('');
     } catch (error) {
-        console.error('Erro ao atualizar tabela de transações:', error);
+        console.error('Erro ao atualizar tabela:', error);
     }
 }
 
@@ -541,7 +490,7 @@ function updateCashFlowChart() {
             }
         });
     } catch (error) {
-        console.error('Erro ao atualizar gráfico de fluxo de caixa:', error);
+        console.error('Erro no gráfico de fluxo:', error);
     }
 }
 
@@ -598,7 +547,7 @@ function updateCategoryChart() {
             }
         });
     } catch (error) {
-        console.error('Erro ao atualizar gráfico de categorias:', error);
+        console.error('Erro no gráfico de categorias:', error);
     }
 }
 
@@ -659,7 +608,7 @@ function updateEvolutionChart() {
             }
         });
     } catch (error) {
-        console.error('Erro ao atualizar gráfico de evolução:', error);
+        console.error('Erro no gráfico de evolução:', error);
     }
 }
 
@@ -737,7 +686,7 @@ function setDefaultDate() {
             dateInput.value = today;
         }
     } catch (error) {
-        console.error('Erro ao definir data padrão:', error);
+        console.error('Erro ao definir data:', error);
     }
 }
 
@@ -753,7 +702,7 @@ function resetTypeButtons() {
             incomeBtn.classList.remove('border-gray-300');
         }
     } catch (error) {
-        console.error('Erro ao resetar botões de tipo:', error);
+        console.error('Erro ao resetar botões:', error);
     }
 }
 
@@ -797,7 +746,7 @@ function setupEventListeners() {
             });
         });
     } catch (error) {
-        console.error('Erro ao configurar event listeners:', error);
+        console.error('Erro ao configurar listeners:', error);
     }
 }
 
@@ -825,7 +774,7 @@ function handleTransactionSubmit(e) {
         
         closeModal('transaction-modal');
     } catch (error) {
-        console.error('Erro ao enviar formulário de transação:', error);
+        console.error('Erro ao enviar formulário:', error);
     }
 }
 
@@ -864,7 +813,7 @@ function updateThemeIcon(theme) {
             icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
         }
     } catch (error) {
-        console.error('Erro ao atualizar ícone de tema:', error);
+        console.error('Erro ao atualizar ícone:', error);
     }
 }
 
