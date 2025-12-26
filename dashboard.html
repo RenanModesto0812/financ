@@ -151,6 +151,14 @@
             align-items: center;
             justify-content: center;
             z-index: 9999;
+            flex-direction: column;
+        }
+        
+        #loading-screen .text-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
         
         .loader {
@@ -160,6 +168,7 @@
             border-top-color: white;
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
         }
         
         @keyframes spin {

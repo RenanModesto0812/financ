@@ -17,35 +17,65 @@ let charts = {};
 // ========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
-    setupEventListeners();
     loadTheme();
+    setupEventListeners();
+    checkAuth();
 });
 
 async function checkAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-        window.location.href = 'login.html';
-        return;
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+            window.location.href = 'login.html';
+            return;
+        }
+
+        currentUser = session.user;
+        userProfile = JSON.parse(localStorage.getItem('userProfile')) || {
+            name: currentUser.user_metadata?.name || currentUser.email,
+            accountType: currentUser.user_metadata?.account_type || 'pessoal'
+        };
+
+        initializeApp();
+    } catch (error) {
+        console.error('Erro ao verificar autenticacao:', error);
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 2000);
     }
-
-    currentUser = session.user;
-    userProfile = JSON.parse(localStorage.getItem('userProfile')) || {
-        name: currentUser.user_metadata?.name || currentUser.email,
-        accountType: currentUser.user_metadata?.account_type || 'pessoal'
-    };
-
-    initializeApp();
 }
 
 function initializeApp() {
-    updateUserInfo();
-    loadTransactions();
-    setDefaultDate();
-    
-    document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
+    try {
+        const loadingScreen = document.getElementById('loading-screen');
+        const appContainer = document.getElementById('app');
+        
+        if (!loadingScreen || !appContainer) {
+            console.error('Elementos do DOM nao encontrados');
+            return;
+        }
+        
+        updateUserInfo();
+        loadTransactions();
+        setDefaultDate();
+        
+        loadingScreen.style.display = 'none';
+        loadingScreen.style.visibility = 'hidden';
+        
+        appContainer.style.display = 'flex';
+        appContainer.style.visibility = 'visible';
+        
+        setTimeout(() => {
+            updateCharts();
+        }, 100);
+    } catch (error) {
+        console.error('Erro ao inicializar app:', error);
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+        }
+    }
 }
 
 function updateUserInfo() {
