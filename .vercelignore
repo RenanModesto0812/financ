@@ -1,0 +1,8 @@
+node_modules
+.git
+.gitignore
+README.md
+GUIA_RAPIDO.md
+CONFIGURACAO_SUPABASE.md
+*.md
+.DS_Store

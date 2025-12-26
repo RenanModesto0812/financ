@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceMaster Pro - Redirecionando...</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .loading-container {
+            text-align: center;
+            color: white;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-container">
+        <div class="spinner"></div>
+        <h1>FinanceMaster Pro</h1>
+        <p>Verificando autenticação...</p>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://keklkdsiktkpbihhksro.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtla2xrZHNpa3RrcGJpaGhrc3JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMyNjIxNzYsImV4cCI6MjA3ODgzODE3Nn0.Aadwh_qBeaZGUWYjh_DqxurPdPo2uwljHBLv-f51vAU';
+        
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function checkAuthAndRedirect() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                
+                if (session) {
+                    // Usuário está logado, redirecionar para dashboard
+                    window.location.href = 'dashboard.html';
+                } else {
+                    // Usuário não está logado, redirecionar para login
+                    window.location.href = 'login.html';
+                }
+            } catch (error) {
+                console.error('Erro ao verificar autenticação:', error);
+                // Em caso de erro, redirecionar para login
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Verificar autenticação após o carregamento
+        window.addEventListener('load', checkAuthAndRedirect);
+
+        // Timeout de segurança (5 segundos)
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 5000);
+    </script>
+</body>
+</html>
